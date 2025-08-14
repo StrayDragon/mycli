@@ -16,6 +16,22 @@ multi_line = False
 # or "shutdown".
 destructive_warning = True
 
+# Enable double confirmation for extremely dangerous SQL commands
+# Double confirmation requires typing 'yes' twice for the most dangerous operations
+double_confirmation = True
+
+# List of SQL keywords that require double confirmation (in addition to normal destructive warning)
+# Applies to operations without WHERE clauses or certain DROP operations
+# Use comma-separated values - note: ConfigObj parses this as a list automatically
+# Default: all major mutating operations require double confirm, regardless of WHERE clause
+# You can remove keywords here to relax the behavior for your environment.
+double_confirmation_keywords = delete, update, truncate, drop database, drop schema
+
+# When enabled (True), all matched keywords in double_confirmation_keywords require double confirmation
+# When disabled (False), commands with WHERE clauses skip the double confirmation step
+# Default: True (strict mode) - requires double confirmation regardless of WHERE clause presence
+double_confirmation_strict_mode = True
+
 # log_file location.
 log_file = ~/.mycli.log
 

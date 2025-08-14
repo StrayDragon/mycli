@@ -263,12 +263,10 @@ def query_has_where_clause(query: str) -> bool:
 
 def is_destructive(queries: str) -> bool:
     """Returns if any of the queries in *queries* is destructive."""
-    keywords = ("drop", "shutdown", "delete", "truncate", "alter")
+    keywords = ("drop", "shutdown", "delete", "truncate", "alter", "update")
     for query in sqlparse.split(queries):
         if query:
             if query_starts_with(query, list(keywords)) is True:
-                return True
-            elif query_starts_with(query, ["update"]) is True and not query_has_where_clause(query):
                 return True
 
     return False

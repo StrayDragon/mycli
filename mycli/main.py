@@ -141,6 +141,11 @@ class MyCli:
         self.wider_completion_menu = c["main"].as_bool("wider_completion_menu")
         c_dest_warning = c["main"].as_bool("destructive_warning")
         self.destructive_warning = c_dest_warning if warn is None else warn
+        self.double_confirmation = c["main"].as_bool("double_confirmation")
+        self.double_confirmation_keywords = c["main"].get("double_confirmation_keywords", [])
+        if isinstance(self.double_confirmation_keywords, str):
+            self.double_confirmation_keywords = [kw.strip() for kw in self.double_confirmation_keywords.split(',')]
+        self.double_confirmation_strict_mode = c["main"].as_bool("double_confirmation_strict_mode")
         self.login_path_as_host = c["main"].as_bool("login_path_as_host")
         self.post_redirect_command = c['main'].get('post_redirect_command')
 
@@ -164,6 +169,12 @@ class MyCli:
         self.logger = logging.getLogger(__name__)
         self.initialize_logging()
 
+        # Propagate double confirmation config to special iocommands (e.g. watch)
+        try:
+            special.set_double_confirmation(self.double_confirmation, self.double_confirmation_keywords, self.double_confirmation_strict_mode)
+        except Exception:
+            # Avoid breaking init if special module doesn't expose setter in some contexts
+            pass
         prompt_cnf = self.read_my_cnf_files(self.cnf_files, ["prompt"])["prompt"]
         self.prompt_format = prompt or prompt_cnf or c["main"]["prompt"] or self.default_prompt
         self.multiline_continuation_char = c["main"]["prompt_continuation"]
@@ -270,7 +281,10 @@ class MyCli:
         except IOError as e:
             return [(None, None, None, str(e))]
 
-        if self.destructive_warning and confirm_destructive_query(query) is False:
+        if self.destructive_warning and confirm_destructive_query(query,
+                                                                  double_confirm=getattr(self, "double_confirmation", False),
+                                                                  keywords=getattr(self, "double_confirmation_keywords", []),
+                                                                  strict_mode=getattr(self, "double_confirmation_strict_mode", True)) is False:
             message = "Wise choice. Command execution stopped."
             return [(None, None, None, message)]
 
@@ -726,7 +740,6 @@ class MyCli:
                         self.bell()
                     if special.is_timing_enabled():
                         self.echo("Time: %0.03fs" % t)
-                    self.echo("Time: %0.03fs" % t)
                 except KeyboardInterrupt:
                     pass
 
@@ -798,7 +811,12 @@ class MyCli:
                     return
 
             if self.destructive_warning:
-                destroy = confirm_destructive_query(text)
+                destroy = confirm_destructive_query(
+                    text,
+                    double_confirm=getattr(self, "double_confirmation", False),
+                    keywords=getattr(self, "double_confirmation_keywords", []),
+                    strict_mode=getattr(self, "double_confirmation_strict_mode", True),
+                )
                 if destroy is None:
                     pass  # Query was not destructive. Nothing to do here.
                 elif destroy is True:
@@ -1526,7 +1544,12 @@ def cli(
         if mycli.destructive_warning and is_destructive(stdin_text):
             try:
                 sys.stdin = open("/dev/tty")
-                warn_confirmed = confirm_destructive_query(stdin_text)
+                warn_confirmed = confirm_destructive_query(
+                    stdin_text,
+                    double_confirm=getattr(mycli, "double_confirmation", False),
+                    keywords=getattr(mycli, "double_confirmation_keywords", []),
+                    strict_mode=getattr(mycli, "double_confirmation_strict_mode", True),
+                )
             except (IOError, OSError):
                 mycli.logger.warning("Unable to open TTY as stdin.")
             if not warn_confirmed:

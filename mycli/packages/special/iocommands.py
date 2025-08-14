@@ -39,6 +39,11 @@ PIPE_ONCE: dict[str, Any] = {
 delimiter_command = DelimiterCommand()
 favoritequeries = FavoriteQueries(ConfigObj())
 
+# Add double confirmation module-level configuration
+DOUBLE_CONFIRM_ENABLED: bool = False
+DOUBLE_CONFIRM_KEYWORDS: list[str] = []
+DOUBLE_CONFIRM_STRICT_MODE: bool = True
+
 
 @export
 def set_favorite_queries(config):
@@ -61,6 +66,19 @@ def set_pager_enabled(val: bool) -> None:
 @export
 def is_pager_enabled() -> bool:
     return PAGER_ENABLED
+
+# New: export double confirmation config setter used by main.py
+@export
+def set_double_confirmation(enabled: bool, keywords, strict_mode: bool = True) -> None:
+    global DOUBLE_CONFIRM_ENABLED, DOUBLE_CONFIRM_KEYWORDS, DOUBLE_CONFIRM_STRICT_MODE
+    DOUBLE_CONFIRM_ENABLED = bool(enabled)
+    if not keywords:
+        DOUBLE_CONFIRM_KEYWORDS = []
+    elif isinstance(keywords, str):
+        DOUBLE_CONFIRM_KEYWORDS = [k.strip() for k in keywords.split(',') if k.strip()]
+    else:
+        DOUBLE_CONFIRM_KEYWORDS = [str(k).strip() for k in keywords if str(k).strip()]
+    DOUBLE_CONFIRM_STRICT_MODE = bool(strict_mode)
 
 
 @export
@@ -575,7 +593,12 @@ def watch_query(arg: str, **kwargs) -> Generator[tuple, None, None]:
             clear_screen = True
             continue
         statement = "{0!s} {1!s}".format(left_arg, arg)
-    destructive_prompt = confirm_destructive_query(statement)
+    destructive_prompt = confirm_destructive_query(
+        statement,
+        double_confirm=DOUBLE_CONFIRM_ENABLED,
+        keywords=DOUBLE_CONFIRM_KEYWORDS,
+        strict_mode=DOUBLE_CONFIRM_STRICT_MODE,
+    )
     if destructive_prompt is False:
         click.secho("Wise choice!")
         return
